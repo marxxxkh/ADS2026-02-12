@@ -1,100 +1,110 @@
 package by.it.group551003.khomich.lesson11;
 
-public class MyHashSet<E> {
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Set;
+
+public class MyHashSet<E> implements Set<E> {
 
     private static class Node<E> {
-        E key;
+        E data;
         Node<E> next;
-        Node(E key, Node<E> next) {
-            this.key = key;
+
+        Node(E data, Node<E> next) {
+            this.data = data;
             this.next = next;
         }
     }
 
-    private static final int DEFAULT_CAPACITY = 16;
-    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
-
-    private Node<E>[] table;
-    private int size;
-    private int threshold;
-
     @SuppressWarnings("unchecked")
-    public MyHashSet() {
-        table = (Node<E>[]) new Node[DEFAULT_CAPACITY];
-        threshold = (int) (DEFAULT_CAPACITY * DEFAULT_LOAD_FACTOR);
-        size = 0;
+    private Node<E>[] table = (Node<E>[]) new Node[16];
+    private int size = 0;
+
+    private int getIndex(Object o) {
+        if (o == null)
+            return 0;
+        return (o.hashCode() & 0x7FFFFFFF) % table.length;
     }
 
     @SuppressWarnings("unchecked")
-    public MyHashSet(int initialCapacity) {
-        int capacity = initialCapacity <= 0 ? DEFAULT_CAPACITY : initialCapacity;
-        table = (Node<E>[]) new Node[capacity];
-        threshold = (int) (capacity * DEFAULT_LOAD_FACTOR);
-        size = 0;
+    private void resize() {
+        Node<E>[] oldTable = table;
+        table = (Node<E>[]) new Node[oldTable.length * 2];
+        for (Node<E> head : oldTable) {
+            Node<E> curr = head;
+            while (curr != null) {
+                Node<E> next = curr.next;
+                int idx = getIndex(curr.data);
+                curr.next = table[idx];
+                table[idx] = curr;
+                curr = next;
+            }
+        }
     }
 
+    //////Обязательные к реализации методы
+
+    @Override
     public int size() {
         return size;
     }
 
+    @Override
+    public void clear() {
+        for (int i = 0; i < table.length; i++)
+            table[i] = null;
+        size = 0;
+    }
+
+    @Override
     public boolean isEmpty() {
         return size == 0;
     }
 
-    @SuppressWarnings("unchecked")
-    public void clear() {
-        if (size > 0)
-            for (int i = 0; i < table.length; i++)
-                table[i] = null;
-        size = 0;
+    @Override
+    public boolean add(E e) {
+        int idx = getIndex(e);
+        Node<E> curr = table[idx];
+        while (curr != null) {
+            if (e == null ? curr.data == null : e.equals(curr.data))
+                return false;
+            curr = curr.next;
+        }
+        table[idx] = new Node<>(e, table[idx]);
+        size++;
+        if (size >= table.length * 0.75)
+            resize();
+        return true;
     }
 
-    public boolean contains(Object o) {
-        int index = getIndex(o, table.length);
-        Node<E> current = table[index];
-        while (current != null) {
-            if (keysEqual(current.key, o))
+    @Override
+    public boolean remove(Object o) {
+        int idx = getIndex(o);
+        Node<E> curr = table[idx];
+        Node<E> prev = null;
+        while (curr != null) {
+            if (o == null ? curr.data == null : o.equals(curr.data)) {
+                if (prev == null)
+                    table[idx] = curr.next;
+                else
+                    prev.next = curr.next;
+                size--;
                 return true;
-            current = current.next;
+            }
+            prev = curr;
+            curr = curr.next;
         }
         return false;
     }
 
-    public boolean add(E e) {
-        int index = getIndex(e, table.length);
-        Node<E> current = table[index];
-
-        while (current != null) {
-            if (keysEqual(current.key, e))
-                return false;
-            current = current.next;
-        }
-
-        table[index] = new Node<>(e, table[index]);
-        size++;
-
-        if (size >= threshold)
-            resize();
-
-        return true;
-    }
-
-    public boolean remove(Object o) {
-        int index = getIndex(o, table.length);
-        Node<E> current = table[index];
-        Node<E> prev = null;
-
-        while (current != null) {
-            if (keysEqual(current.key, o)) {
-                if (prev == null)
-                    table[index] = current.next;
-                else
-                    prev.next = current.next;
-                size--;
+    @Override
+    public boolean contains(Object o) {
+        int idx = getIndex(o);
+        Node<E> curr = table[idx];
+        while (curr != null) {
+            if (o == null ? curr.data == null : o.equals(curr.data))
                 return true;
-            }
-            prev = current;
-            current = current.next;
+            curr = curr.next;
         }
         return false;
     }
@@ -103,59 +113,79 @@ public class MyHashSet<E> {
     public String toString() {
         if (size == 0)
             return "[]";
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
+        StringBuilder sb = new StringBuilder("[");
         boolean first = true;
-
-        for (int i = 0; i < table.length; i++) {
-            Node<E> current = table[i];
-            while (current != null) {
+        for (Node<E> head : table) {
+            Node<E> curr = head;
+            while (curr != null) {
                 if (!first)
                     sb.append(", ");
-                sb.append(current.key);
+                sb.append(curr.data);
                 first = false;
-                current = current.next;
+                curr = curr.next;
             }
         }
-
         sb.append("]");
         return sb.toString();
     }
 
-    private int getIndex(Object o, int length) {
-        if (o == null)
-            return 0;
-        int hash = o.hashCode();
-        return (hash ^ (hash >>> 16)) & (length - 1);
+    @Override
+    public boolean containsAll(Collection<?> c) {
+        for (Object e : c)
+            if (!contains(e))
+                return false;
+        return true;
     }
 
-    private boolean keysEqual(Object k1, Object k2) {
-        if (k1 == k2)
-            return true;
-        if (k1 == null || k2 == null)
-            return false;
-        return k1.equals(k2);
+    @Override
+    public boolean addAll(Collection<? extends E> c) {
+        boolean modified = false;
+        for (E e : c)
+            if (add(e))
+                modified = true;
+        return modified;
     }
 
-    @SuppressWarnings("unchecked")
-    private void resize() {
-        int newCapacity = table.length * 2;
-        Node<E>[] newTable = (Node<E>[]) new Node[newCapacity];
+    @Override
+    public boolean removeAll(Collection<?> c) {
+        boolean modified = false;
+        for (Object e : c)
+            if (remove(e))
+                modified = true;
+        return modified;
+    }
 
+    @Override
+    public boolean retainAll(Collection<?> c) {
+        boolean modified = false;
         for (int i = 0; i < table.length; i++) {
-            Node<E> current = table[i];
-            while (current != null) {
-                Node<E> next = current.next;
-                int newIndex = getIndex(current.key, newCapacity);
-
-                current.next = newTable[newIndex];
-                newTable[newIndex] = current;
-                current = next;
+            Node<E> curr = table[i];
+            while (curr != null) {
+                Node<E> next = curr.next;
+                if (!c.contains(curr.data)) {
+                    remove(curr.data);
+                    modified = true;
+                }
+                curr = next;
             }
         }
+        return modified;
+    }
 
-        table = newTable;
-        threshold = (int) (newCapacity * DEFAULT_LOAD_FACTOR);
+    //////Остальные методы интерфейса Set
+
+    @Override
+    public Iterator<E> iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object[] toArray() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <T> T[] toArray(T[] a) {
+        throw new UnsupportedOperationException();
     }
 }
